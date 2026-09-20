@@ -1,0 +1,40 @@
+name: Build & Release
+
+on:
+  push:
+    tags: [ "v*" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Publish single-file exe
+        run: dotnet publish LocalFileServer/LocalFileServer.csproj -c Release -r win-x64 --self-contained false -o publish
+
+      - name: Rename asset
+        run: |
+          $tag = "${{ github.ref_name }}"
+          Copy-Item "publish/本地文件服务器.exe" "LocalFileServer-$tag-win-x64.exe"
+
+      - name: Upload artifact (tag builds only)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: actions/upload-artifact@v4
+        with:
+          name: LocalFileServer-exe
+          path: LocalFileServer-*-win-x64.exe
+
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: LocalFileServer-*-win-x64.exe
+          generate_release_notes: true
